@@ -13,7 +13,7 @@ ISA = {
         "Format" : "I",
         "Type"  : "ARITHMETIC",
         "func" : "+"
-    }
+    },
     "010001" : {
         "Name" : "HALT",
         "Format" : "I",

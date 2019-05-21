@@ -57,7 +57,7 @@ def decode():
 def execute():
 	#Perform ALU operation
 	if ISA[P[2].opcode]["Type"] == "ARITHMETIC":
-		if ISA[P[1].opcode]["Format"] == "R":
+		if ISA[P[2].opcode]["Format"] == "R":
 			result = eval("P[2].rs_value"+ISA[P[2].opcode]["func"]+"P[2].rt_value")
 			P[2].rd_value = result
 		else:
@@ -72,7 +72,7 @@ def memory():
 def writeback():
 	#write the result to register
 	if ISA[P[4].opcode]["Type"] == "ARITHMETIC":
-		if ISA[P[1].opcode]["Format"] == "R":
+		if ISA[P[4].opcode]["Format"] == "R":
 			reg[P[4].rd] = P[4].rd_value
 		else:
 			reg[P[4].rt] = P[4].rt_value
