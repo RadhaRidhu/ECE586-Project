@@ -2,7 +2,7 @@
 # Name: Radha Natesan
 # Date: 5/19/19
 # Course: ECE 586 - Computer Architecture
-# Desc: MIPS-lite simulator
+# Desc: MIPS-lite simulator test
 # Usage: python Simulator.py
 
 import sys
@@ -64,10 +64,10 @@ def decode():
 	P[1].rt = int(P[1].operands[5:10],2)
 	if ISA[P[1].opcode]["Format"] == "R":
 		P[1].rd = int(P[1].operands[10:15],2)
-		print ISA[P[1].opcode]["Name"] , " R" , P[1].rd , ", R" ,  P[1].rs , ", R" ,  P[1].rt
+		print (ISA[P[1].opcode]["Name"] , " R" , P[1].rd , ", R" ,  P[1].rs , ", R" ,  P[1].rt)
 	else:
 		P[1].imm = int(P[1].operands[10:],2)
-		print ISA[P[1].opcode]["Name"] , " R" , P[1].rt , ", R" ,  P[1].rs , ",",  P[1].imm
+		print (ISA[P[1].opcode]["Name"] , " R" , P[1].rt , ", R" ,  P[1].rs , ",",  P[1].imm)
 
 	#Read source register values
 	P[1].rs_value = reg[P[1].rs]
@@ -95,7 +95,7 @@ def execute():
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
 			pc = pc + P[2].imm-1 
 		if ISA[P[2].opcode]["Name"] == "JR":
-			pc = P[2].rs_value/4 + 1
+			pc = P[2].rs_value//4 + 1
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
 			P[2].Address = P[2].rs_value + P[2].imm 
 		else:
@@ -106,14 +106,14 @@ def execute():
 def memory():
 	global Mem
 	#Memory access for load/store instructions
-	print linecache.getline('proj_trace.txt', P[3].Address)
+	print (linecache.getline('proj_trace.txt', P[3].Address))
 	if ISA[P[3].opcode]["Name"] == "LDW":
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]
 		else:
-			P[3].rt_value = int(linecache.getline('proj_trace.txt', P[3].Address/4 +1).strip(), 16)
+			P[3].rt_value = int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16)
 	if ISA[P[3].opcode]["Name"] == "STW":
-		print P[3].Address
+		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
 	
 def writeback():
@@ -127,16 +127,16 @@ def writeback():
 	#print(reg)
 def printReport():
 
-	print 'Total number of instructions:', I_count
-	print 'Arithmetic instructions:', A_count
-	print 'Logical instructions:', L_count
-	print 'Memory access instructions:', M_count
-	print 'Control transfer instructions:', C_count
+	print ('Total number of instructions:', I_count)
+	print ('Arithmetic instructions:', A_count)
+	print ('Logical instructions:', L_count)
+	print ('Memory access instructions:', M_count)
+	print ('Control transfer instructions:', C_count)
 	
 	print(reg)
 	print(Mem)
 
-inFile = open("proj_trace.txt","rw")
+inFile = open("proj_trace.txt","r")
 reg[0] = 0
 
 	
