@@ -132,9 +132,14 @@ def printReport():
 	print 'Logical instructions:', L_count
 	print 'Memory access instructions:', M_count
 	print 'Control transfer instructions:', C_count
-	
-	print(reg)
-	print(Mem)
+	print '\nFinal Register state:'
+	print 'Program Counter :' , (pc-1)*4
+	for i in range(len(reg)):
+		if reg[i] != None:
+			print 'R',i,':',reg[i]
+	print '\nFinal Memory state:'
+	for key in Mem:
+		print 'Address:',key,', Contents:',Mem[key]
 
 inFile = open("proj_trace.txt","rw")
 reg[0] = 0
