@@ -126,15 +126,20 @@ def writeback():
 
 	#print(reg)
 def printReport():
-
 	print ('Total number of instructions:', I_count)
 	print ('Arithmetic instructions:', A_count)
 	print ('Logical instructions:', L_count)
 	print ('Memory access instructions:', M_count)
 	print ('Control transfer instructions:', C_count)
-	
-	print(reg)
-	print(Mem)
+  
+	print ('\nFinal Register state:')
+	print ('Program Counter :' , (pc-1)*4)
+	for i in range(len(reg)):
+		if reg[i] != None:
+			print 'R',i,':',reg[i]
+	print '\nFinal Memory state:'
+	for key in Mem:
+		print 'Address:',key,', Contents:',Mem[key]
 
 #Convert 16 bit decimal to signed integer
 def twos_complement(value):
