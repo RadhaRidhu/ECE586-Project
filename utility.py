@@ -26,11 +26,65 @@ ISA = {
         "Type"  : "ARITHMETIC",
         "func" : "-"
     },
+     "000110" : {
+
+        "Name" : "OR",
+
+        "Format" : "R",
+
+        "Type"  : "LOGICAL",
+
+        "func" : "|"
+    },
+    "000111" : {
+
+        "Name" : "ORI",
+
+        "Format" : "I",
+
+        "Type"  : "LOGICAL",
+
+        "func" : "|"
+    },
+     "001000" : {
+
+        "Name" : "AND",
+
+        "Format" : "R",
+
+        "Type"  : "LOGICAL",
+
+        "func" : "&"
+
+    },
     "001001" : {
         "Name" : "ANDI",
         "Format" : "I",
         "Type"  : "LOGICAL",
         "func" : "&"
+    },
+    "001010" : {
+
+        "Name" : "XOR",
+
+        "Format" : "R",
+
+        "Type"  : "LOGICAL",
+
+        "func" : "^"
+
+    },
+
+    "001011" : {
+
+        "Name" : "XORI",
+
+        "Format" : "I",
+
+        "Type"  : "LOGICAL",
+
+        "func" : "^"
+
     },
     "001100" : {
         "Name" : "LDW",
