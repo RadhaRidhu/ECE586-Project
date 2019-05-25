@@ -66,7 +66,7 @@ def decode():
 		P[1].rd = int(P[1].operands[10:15],2)
 		print ISA[P[1].opcode]["Name"] , " R" , P[1].rd , ", R" ,  P[1].rs , ", R" ,  P[1].rt
 	else:
-		P[1].imm = int(P[1].operands[10:],2)
+		P[1].imm = twos_complement(int(P[1].operands[10:],2))
 		print ISA[P[1].opcode]["Name"] , " R" , P[1].rt , ", R" ,  P[1].rs , ",",  P[1].imm
 
 	#Read source register values
@@ -135,6 +135,12 @@ def printReport():
 	
 	print(reg)
 	print(Mem)
+
+#Convert 16 bit decimal to signed integer
+def twos_complement(value):
+	if value & (1 << (16-1)):
+		value -= 1 << 16
+	return value
 
 inFile = open("proj_trace.txt","rw")
 reg[0] = 0
