@@ -136,7 +136,14 @@ def printReport():
 	print(reg)
 	print(Mem)
 
+#Convert 16 bit decimal to signed integer
+def twos_complement(value):
+	if value & (1 << (16-1)):
+		value -= 1 << 16
+	return value
+
 inFile = open("proj_trace.txt","r")
+
 reg[0] = 0
 
 	
