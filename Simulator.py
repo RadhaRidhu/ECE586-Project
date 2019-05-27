@@ -129,7 +129,7 @@ def memory():
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]
 		else:
-			P[3].rt_value = int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16)
+			P[3].rt_value = twos_complement(int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16))
 	if ISA[P[3].opcode]["Name"] == "STW":
 		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
