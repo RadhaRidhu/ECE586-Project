@@ -18,6 +18,7 @@ Mem = {}
 i_index = 0
 dest_Reg = [] #Store the destination registers to fix RAW hazard
 halt = 0
+cycles = 0
 
 #Instruction count
 I_count = 0
@@ -41,14 +42,14 @@ class Instruction:
 	    self.Address = 0
 
 def fetch():
-	global i_index, p_index, pc, I_count
+	global i_index, p_index, pc
 	# Read input file
 	I.insert(i_index,Instruction(bin(int(linecache.getline('proj_trace.txt', pc).strip(), 16))[2:].zfill(32)))
 	pc = pc + 1
 	del P[0]
 	P.insert(0,I[i_index])
 	i_index = i_index + 1
-	I_count = I_count + 1
+	
 	#Circular buffer
 	if i_index == 5:
 		i_index = 0
@@ -134,10 +135,11 @@ def memory():
 		Mem[str(P[3].Address)] = reg[P[3].rt]
 	
 def writeback():
-	global A_count,L_count,M_count,C_count
+	global A_count,L_count,M_count,C_count,I_count
 	if ISA[P[4].opcode]["Name"] == "HALT":
 		print ('Halting')
 		C_count = C_count + 1
+		I_count = I_count + 1
 		printReport()
 		inFile.close()
 		sys.exit()
@@ -160,7 +162,7 @@ def writeback():
 		M_count = M_count + 1
 	if ISA[P[4].opcode]["Type"] == "CONTROL":
 		C_count = C_count + 1
-
+	I_count = I_count + 1
 	
 
 	#print(reg)
@@ -180,6 +182,8 @@ def printReport():
 	for key in Mem:
 		print 'Address:',key,', Contents:',Mem[key]
 
+	print('\nExecution time in cycles: ' + str(cycles))
+
 #Convert 16 bit decimal to signed integer
 def twos_complement(value):
 	if value & (1 << (16-1)):
@@ -197,7 +201,7 @@ P.insert(3,None)
 P.insert(4,None)
 
 while 1 : 
-	
+	cycles = cycles + 1
 	if P[4] != None:
 		#WB stage
 		print ("wb")
