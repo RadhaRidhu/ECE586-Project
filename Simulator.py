@@ -20,12 +20,15 @@ dest_Reg = [] #Store the destination registers to fix RAW hazard
 halt = 0
 cycles = 0
 
+ 
 #Instruction count
 I_count = 0
 A_count = 0
 L_count = 0
 M_count = 0
 C_count = 0
+S_count = 0  #Stall count
+BP_count = 0 #Branch penalty count
 
 #Class to store decoded instruction attributes
 class Instruction:
@@ -55,11 +58,12 @@ def fetch():
 		i_index = 0
 
 def decode():
-	global C_count
+	global C_count,S_count,halt
 	#decode the opcode and parse operands
 	#If HALT command is found, print result and exit
 	if ISA[P[1].opcode]["Name"] == "HALT":
 		halt = 1
+		return
 		
 	P[1].rs = int(P[1].operands[:5],2)
 	P[1].rt = int(P[1].operands[5:10],2)
@@ -75,7 +79,8 @@ def decode():
 	#If RAW HAZARD, return from decode
 	if ((ISA[P[1].opcode]["Format"] == "R") and ((P[1].rs in dest_Reg) or (P[1].rt in dest_Reg))) or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest_Reg)) :
 		print ('Hazard***')
-		print dest_Reg
+		S_count = S_count + 1
+		print dest_Reg,stall
 		return 1;
 	#Read source register values
 	P[1].rs_value = reg[P[1].rs]
@@ -92,7 +97,7 @@ def decode():
 
 def execute():
 	#Perform ALU operation
-	global pc
+	global pc,BP_count
 	if ISA[P[2].opcode]["Name"] == "HALT":
 		return
 	if ISA[P[2].opcode]["Format"] == "R":
@@ -103,14 +108,17 @@ def execute():
 			pc = pc + P[2].imm -2
 			print pc
 			P[1] = None
+			BP_count = BP_count + 1
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
 			pc = pc + P[2].imm-2 
 			P[1] = None
+			BP_count = BP_count + 1
 		if ISA[P[2].opcode]["Name"] == "JR":
 			print ('Jump Register is ' + str(P[2].rs_value))
 			pc = P[2].rs_value//4 + 1
 			print pc
 			P[1] = None
+			BP_count = BP_count + 1
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
 			P[2].Address = P[2].rs_value + P[2].imm 
 		else:
@@ -182,7 +190,12 @@ def printReport():
 	for key in Mem:
 		print 'Address:',key,', Contents:',Mem[key]
 
-	print('\nExecution time in cycles: ' + str(cycles))
+	print('\nTiming Simulator without forwarding:')
+	print('Execution time in cycles: ' + str(cycles))
+	print('Total stalls: ' + str(S_count))
+	print('Branch Penalty: '+str(BP_count))
+	print('Pipeline fill and drain delay: '+str(4))
+	print('\n')
 
 #Convert 16 bit decimal to signed integer
 def twos_complement(value):
@@ -213,9 +226,8 @@ while 1 :
 		print("mem")
 		memory()
 		del P[4]
-		if not halt:
-			P.insert(4,P[3])
-			P[3]=None
+		P.insert(4,P[3])
+		P[3]=None
 	
 
 	if P[2] != None:		
@@ -223,9 +235,8 @@ while 1 :
 		print("execute")
 		execute()
 		del P[3]
-		if not halt:
-			P.insert(3,P[2])
-			P[2]=None
+		P.insert(3,P[2])
+		P[2]=None
 
 	if P[1] != None:
 		print("decode")
@@ -234,11 +245,10 @@ while 1 :
 		if stall:
 			continue
 		del P[2]
-		if not halt:
-			P.insert(2,P[1])
-			P[1]=None
+		P.insert(2,P[1])
+		P[1]=None
 
-	if P[0] == None and not halt :
+	if P[0] == None and not halt:
 		#IF stage
 		fetch()
 		del P[1]
