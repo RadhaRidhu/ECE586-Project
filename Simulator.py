@@ -77,7 +77,9 @@ def decode():
 		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
 
 	#If RAW HAZARD, return from decode
-	if ((ISA[P[1].opcode]["Format"] == "R") and ((P[1].rs in dest_Reg) or (P[1].rt in dest_Reg))) or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest_Reg)) :
+	if ((ISA[P[1].opcode]["Format"] == "R") and ((P[1].rs in dest_Reg) or (P[1].rt in dest_Reg))) \
+	or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest_Reg)) \
+	or ((ISA[P[1].opcode]["Name"] == "BEQ") and (P[1].rt in dest_Reg)):
 		print ('Hazard***')
 		S_count = S_count + 1
 		print dest_Reg,stall
