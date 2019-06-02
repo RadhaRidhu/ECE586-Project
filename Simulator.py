@@ -12,11 +12,12 @@ import linecache
 #Global variables
 pc = 1		    #Program Counter
 reg = [None] * 32	#Registers
+dest_reg = [None] * 32	#Registers
 P = []	    #Pipeline stages
 I = []		    #Instructions
 Mem = {}
 i_index = 0
-dest_Reg = [] #Store the destination registers to fix RAW hazard
+dest = [] #Store the destination registers to fix RAW hazard
 halt = 0
 cycles = 0
 
@@ -58,7 +59,7 @@ def fetch():
 		i_index = 0
 
 def decode():
-	global C_count,S_count,halt
+	global C_count,halt
 	#decode the opcode and parse operands
 	#If HALT command is found, print result and exit
 	if ISA[P[1].opcode]["Name"] == "HALT":
@@ -69,65 +70,63 @@ def decode():
 	P[1].rt = int(P[1].operands[5:10],2)
 	if ISA[P[1].opcode]["Format"] == "R":
 		P[1].rd = int(P[1].operands[10:15],2)
-		destination = P[1].rd
 		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
 	else:
 		P[1].imm = int(P[1].operands[10:],2)
-		destination = P[1].rt
 		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
 
-	#If RAW HAZARD, return from decode
-	if ((ISA[P[1].opcode]["Format"] == "R") and ((P[1].rs in dest_Reg) or (P[1].rt in dest_Reg))) \
-	or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest_Reg)) \
-	or ((ISA[P[1].opcode]["Name"] == "BEQ") and (P[1].rt in dest_Reg)):
-		print ('Hazard***')
-		S_count = S_count + 1
-		print dest_Reg,stall
-		return 1;
-	#Read source register values
-	P[1].rs_value = reg[P[1].rs]
-	P[1].rt_value = reg[P[1].rt]
-	
-	if ISA[P[1].opcode]["Name"] != "STW" and  ISA[P[1].opcode]["Type"] != "CONTROL" :
-		#Store destination registers
-		print ("adding " + str(destination))
-		dest_Reg.append(destination)
-
-
-	return 0;
-
-
+		
 def execute():
 	#Perform ALU operation
-	global pc,BP_count
+	global pc,BP_count,S_count
 	if ISA[P[2].opcode]["Name"] == "HALT":
 		return
+	
+#If RAW HAZARD, return from decode
+	if P[2].rs in dest:
+		P[2].rs_value = dest_reg[P[2].rs]
+	else:
+		P[2].rs_value = reg[P[2].rs]
+	#Read source register values
+
+	if ((P[2].rt in dest) and (ISA[P[2].opcode]["Format"] == "R")):
+		P[2].rt_value = dest_reg[P[2].rt]
+	else:
+		P[2].rt_value = reg[P[2].rt]
+
+	
 	if ISA[P[2].opcode]["Format"] == "R":
 		result = eval("P[2].rs_value"+ISA[P[2].opcode]["func"]+"P[2].rt_value")
 		P[2].rd_value = result
+		destination = P[2].rd
+		dest_reg[P[2].rd] = P[2].rd_value
+		dest.append(destination)		
 	else:
 		if ISA[P[2].opcode]["Name"] == "BEQ" and P[2].rs_value == P[2].rt_value:
 			pc = pc + P[2].imm -2
-			print pc
+			print (pc)
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
 			pc = pc + P[2].imm-2 
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
 		if ISA[P[2].opcode]["Name"] == "JR":
 			print ('Jump Register is ' + str(P[2].rs_value))
 			pc = P[2].rs_value//4 + 1
-			print pc
+			print (pc)
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
-			P[2].Address = P[2].rs_value + P[2].imm 
+			P[2].Address = P[2].rs_value + P[2].imm 					
 		else:
 			print ("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			result = eval("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			P[2].rt_value = result
-			
+			destination = P[2].rt
+			dest_reg[P[2].rt] = P[2].rt_value
+			dest.append(destination)
+				
 	
 def memory():
 	global Mem
@@ -138,12 +137,18 @@ def memory():
 	if ISA[P[3].opcode]["Name"] == "LDW":
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]
+			destination = P[3].rt
+			dest_reg[P[3].rt] = P[3].rt_value
+			dest.append(destination)			
 		else:
 			P[3].rt_value = twos_complement(int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16))
+			destination = P[3].rt
+			dest_reg[P[3].rt] = P[3].rt_value
+			dest.append(destination)
 	if ISA[P[3].opcode]["Name"] == "STW":
 		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
-	
+			
 def writeback():
 	global A_count,L_count,M_count,C_count,I_count
 	if ISA[P[4].opcode]["Name"] == "HALT":
@@ -158,11 +163,11 @@ def writeback():
 		if ISA[P[4].opcode]["Format"] == "R":
 			reg[P[4].rd] = P[4].rd_value
 			#Remove destination register from list
-			dest_Reg.remove(P[4].rd)
+			dest.remove(P[4].rd)
 		else:
 			reg[P[4].rt] = P[4].rt_value
 			#Remove destination register from list
-			dest_Reg.remove(P[4].rt)
+			dest.remove(P[4].rt)
 
 	if ISA[P[4].opcode]["Type"] == "ARITHMETIC":
 		A_count = A_count + 1
@@ -187,10 +192,10 @@ def printReport():
 	print ('Program Counter :' , (pc-1)*4)
 	for i in range(len(reg)):
 		if reg[i] != None:
-			print 'R',i,':',reg[i]
-	print '\nFinal Memory state:'
+			print ('R',i,':',reg[i])
+	print ('\nFinal Memory state:')
 	for key in Mem:
-		print 'Address:',key,', Contents:',Mem[key]
+		print ('Address:',key,', Contents:',Mem[key])
 
 	print('\nTiming Simulator without forwarding:')
 	print('Execution time in cycles: ' + str(cycles))
@@ -238,14 +243,14 @@ while 1 :
 		execute()
 		del P[3]
 		P.insert(3,P[2])
+		print('rs=',P[2].rs_value)
+		print('rd=',P[2].rd_value)
 		P[2]=None
 
 	if P[1] != None:
 		print("decode")
-		stall = decode()
+		decode()
 		#ID stage
-		if stall:
-			continue
 		del P[2]
 		P.insert(2,P[1])
 		P[1]=None
@@ -257,7 +262,7 @@ while 1 :
 		P.insert(1,P[0])
 		P[0] = None
 
-
+	print('current cycle:',cycles)
 	
 
 	
