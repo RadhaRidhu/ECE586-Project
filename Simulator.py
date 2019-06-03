@@ -12,14 +12,16 @@ import linecache
 #Global variables
 pc = 1		    #Program Counter
 reg = [None] * 32	#Registers
-dest_reg = [None] * 32	#Registers
+dest_reg = [None] * 32	#dest Registers to store value for forwarding
 P = []	    #Pipeline stages
 I = []		    #Instructions
 Mem = {}
 i_index = 0
 dest = [] #Store the destination registers to fix RAW hazard
+dest_mem = [] #Store the destination for memory in use for LDW harzrd
 halt = 0
 cycles = 0
+stall=0
 
  
 #Instruction count
@@ -81,6 +83,14 @@ def execute():
 	global pc,BP_count,S_count
 	if ISA[P[2].opcode]["Name"] == "HALT":
 		return
+
+	if ((ISA[P[2].opcode]["Format"] == "R") and ((P[2].rs in dest_mem) or (P[2].rt in dest_mem))) \
+	or ((ISA[P[2].opcode]["Format"] == "I") and (P[2].rs in dest_mem)) \
+	or ((ISA[P[2].opcode]["Name"] == "BEQ") and (P[2].rt in dest_mem)):
+		print ('Hazard***')
+		S_count = S_count + 1
+		print (dest_mem)
+		return 1;
 	
 #If RAW HAZARD, return from decode
 	if P[2].rs in dest:
@@ -126,7 +136,8 @@ def execute():
 			destination = P[2].rt
 			dest_reg[P[2].rt] = P[2].rt_value
 			dest.append(destination)
-				
+
+	return 0;	
 	
 def memory():
 	global Mem
@@ -139,12 +150,14 @@ def memory():
 			P[3].rt_value = Mem[str(P[3].Address)]
 			destination = P[3].rt
 			dest_reg[P[3].rt] = P[3].rt_value
-			dest.append(destination)			
+			dest.append(destination)	
+			dest_mem.append(destination)
 		else:
 			P[3].rt_value = twos_complement(int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16))
 			destination = P[3].rt
 			dest_reg[P[3].rt] = P[3].rt_value
 			dest.append(destination)
+			dest_mem.append(destination)
 	if ISA[P[3].opcode]["Name"] == "STW":
 		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
@@ -164,10 +177,14 @@ def writeback():
 			reg[P[4].rd] = P[4].rd_value
 			#Remove destination register from list
 			dest.remove(P[4].rd)
+			if P[4].rd in dest_mem:
+				dest_mem.remove(P[4].rd)
 		else:
 			reg[P[4].rt] = P[4].rt_value
 			#Remove destination register from list
 			dest.remove(P[4].rt)
+			if P[4].rt in dest_mem:
+				dest_mem.remove(P[4].rt)			
 
 	if ISA[P[4].opcode]["Type"] == "ARITHMETIC":
 		A_count = A_count + 1
@@ -222,6 +239,7 @@ P.insert(4,None)
 
 while 1 : 
 	cycles = cycles + 1
+
 	if P[4] != None:
 		#WB stage
 		print ("wb")
@@ -231,6 +249,7 @@ while 1 :
 	if P[3] != None:
 		#MEM stage
 		print("mem")
+	
 		memory()
 		del P[4]
 		P.insert(4,P[3])
@@ -240,11 +259,12 @@ while 1 :
 	if P[2] != None:		
 		#EX stage
 		print("execute")
-		execute()
+		
+		stall = execute()
+		if stall:
+			continue		
 		del P[3]
-		P.insert(3,P[2])
-		print('rs=',P[2].rs_value)
-		print('rd=',P[2].rd_value)
+		P.insert(3,P[2])		
 		P[2]=None
 
 	if P[1] != None:
@@ -261,6 +281,7 @@ while 1 :
 		del P[1]
 		P.insert(1,P[0])
 		P[0] = None
+
 
 	print('current cycle:',cycles)
 	
