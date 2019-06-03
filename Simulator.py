@@ -19,7 +19,7 @@ i_index = 0
 dest_Reg = [] #Store the destination registers to fix RAW hazard
 halt = 0
 cycles = 0
-
+branch_stall = 0
  
 #Instruction count
 I_count = 0
@@ -99,7 +99,7 @@ def decode():
 
 def execute():
 	#Perform ALU operation
-	global pc,BP_count
+	global pc,BP_count,branch_stall
 	if ISA[P[2].opcode]["Name"] == "HALT":
 		return
 	if ISA[P[2].opcode]["Format"] == "R":
@@ -110,17 +110,20 @@ def execute():
 			pc = pc + P[2].imm -2
 			print pc
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
+			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
 			pc = pc + P[2].imm-2 
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
+			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "JR":
 			print ('Jump Register is ' + str(P[2].rs_value))
 			pc = P[2].rs_value//4 + 1
 			print pc
 			P[1] = None
-			BP_count = BP_count + 1
+			BP_count = BP_count + 2
+			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
 			P[2].Address = P[2].rs_value + P[2].imm 
 		else:
@@ -216,6 +219,7 @@ P.insert(3,None)
 P.insert(4,None)
 
 while 1 : 
+
 	cycles = cycles + 1
 	if P[4] != None:
 		#WB stage
@@ -239,8 +243,11 @@ while 1 :
 		del P[3]
 		P.insert(3,P[2])
 		P[2]=None
+	
+	if branch_stall > 0:
+		branch_stall=branch_stall-1
 
-	if P[1] != None:
+	if P[1] != None and branch_stall == 0:
 		print("decode")
 		stall = decode()
 		#ID stage
@@ -250,7 +257,7 @@ while 1 :
 		P.insert(2,P[1])
 		P[1]=None
 
-	if P[0] == None and not halt:
+	if P[0] == None and not halt and branch_stall == 0:
 		#IF stage
 		fetch()
 		del P[1]
