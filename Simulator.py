@@ -31,6 +31,7 @@ C_count = 0
 S_count = 0  #Stall count
 BP_count = 0 #Branch penalty count
 
+input_trace = 'final_proj_trace.txt'
 #Class to store decoded instruction attributes
 class Instruction:
 	def __init__(self, rawInstr):
@@ -48,7 +49,7 @@ class Instruction:
 def fetch():
 	global i_index, p_index, pc
 	# Read input file
-	I.insert(i_index,Instruction(bin(int(linecache.getline('proj_trace.txt', pc).strip(), 16))[2:].zfill(32)))
+	I.insert(i_index,Instruction(bin(int(linecache.getline(input_trace, pc).strip(), 16))[2:].zfill(32)))
 	pc = pc + 1
 	del P[0]
 	P.insert(0,I[i_index])
@@ -73,14 +74,14 @@ def decode():
 		destination = P[1].rd
 		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
 	else:
-		P[1].imm = twos_complement(int(P[1].operands[10:],2))
+		P[1].imm = twos_complement(int(P[1].operands[10:],2),16)
 		destination = P[1].rt
 		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
 
 	#forward logic
 	if fwd_flag and P[1].rs in dest and dest_reg[P[1].rs] != None:
 		P[1].rs_value = dest_reg[P[1].rs]
-		print dest, dest_reg
+		#print dest, dest_reg
 		dest.remove(P[1].rs)
 		dest_reg[P[1].rs] = None
 		print('forwarding')
@@ -89,7 +90,7 @@ def decode():
 
 	if fwd_flag and dest_reg[P[1].rt] != None and ((P[1].rt in dest) and ((ISA[P[1].opcode]["Format"] == "R") or (ISA[P[1].opcode]["Name"] == "BEQ"))):
 		P[1].rt_value = dest_reg[P[1].rt]
-		print dest
+		#print dest
 		dest.remove(P[1].rt)
 		dest_reg[P[1].rt] = None
 		print('forwarding')
@@ -108,7 +109,7 @@ def decode():
 
 	if ISA[P[1].opcode]["Name"] != "STW" and  ISA[P[1].opcode]["Type"] != "CONTROL" :
 		#Store destination registers
-		print ("adding " + str(destination))
+		#print ("adding " + str(destination))
 		dest.append(destination)
 
 
@@ -136,7 +137,7 @@ def execute():
 			BP_count = BP_count + 2
 			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
-			pc = pc + P[2].imm-2 
+			pc = pc + P[2].imm-2
 			P[1] = None
 			BP_count = BP_count + 2
 			branch_stall = 2
@@ -155,6 +156,7 @@ def execute():
 			P[2].rt_value = result
 			destination = P[2].rt
 			dest_reg[P[2].rt] = P[2].rt_value
+	print reg
 			
 	
 def memory():
@@ -162,12 +164,13 @@ def memory():
 	if ISA[P[3].opcode]["Name"] == "HALT":
 		return
 	#Memory access for load/store instructions
-	print (linecache.getline('proj_trace.txt', P[3].Address))
+	print (linecache.getline(input_trace, P[3].Address))
 	if ISA[P[3].opcode]["Name"] == "LDW":
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]	
 		else:
-			P[3].rt_value = twos_complement(int(linecache.getline('proj_trace.txt', P[3].Address//4 +1).strip(), 16))
+			P[3].rt_value = twos_complement(int(linecache.getline(input_trace, P[3].Address//4 +1).strip(), 16),32)
+		print reg
 		#Forwarding Mem -> Ex
 		if fwd_flag:
 			dest_reg[P[3].rt] = P[3].rt_value
@@ -183,7 +186,6 @@ def writeback():
 		C_count = C_count + 1
 		I_count = I_count + 1
 		printReport()
-		inFile.close()
 		sys.exit()
 	#write the result to register
 	if ISA[P[4].opcode]["Type"] != "CONTROL" and ISA[P[4].opcode]["Name"] != "STW":
@@ -225,7 +227,7 @@ def printReport():
 		if reg[i] != None:
 			print 'R',i,':',reg[i]
 	print '\nFinal Memory state:'
-	for key in Mem:
+	for key in sorted(Mem):
 		print 'Address:',key,', Contents:',Mem[key]
 	if fwd_flag:
 		print('\nTiming Simulator with forwarding:')
@@ -238,14 +240,13 @@ def printReport():
 	print('\n')
 
 #Convert 16 bit decimal to signed integer
-def twos_complement(value):
-	if value & (1 << (16-1)):
-		value -= 1 << 16
+def twos_complement(value,bits):
+	if value & (1 << (bits-1)):
+		value -= 1 << bits
+
 	return value
 
 fwd_flag = int(sys.argv[1])
-
-inFile = open("proj_trace.txt","r")
 
 reg[0] = 0
 
@@ -256,7 +257,29 @@ P.insert(3,None)
 P.insert(4,None)
 
 while 1 : 
+	'''	fetch()
+	del P[1]
+	P.insert(1,P[0])
+	P[0] = None
 
+	decode()
+	del P[2]
+	P.insert(2,P[1])
+	P[1]=None
+
+	execute()
+	del P[3]
+	P.insert(3,P[2])
+	P[2]=None
+
+	memory()
+	del P[4]
+	P.insert(4,P[3])
+	P[3]=None
+
+	writeback()
+	P[4]=None
+	'''
 	cycles = cycles + 1
 	if P[4] != None:
 		#WB stage
