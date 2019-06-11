@@ -1,35 +1,35 @@
 # File: Simulator.py
-# Name: Radha Natesan
+# Name: Radha Natesan, Alpa Chaudhary
 # Date: 5/19/19
 # Course: ECE 586 - Computer Architecture
 # Desc: MIPS-lite simulator test
-# Usage: python Simulator.py
+# Usage: python Simulator.py <0 (without forwarding)/1 (with forwarding)>
 
 import sys
 from utility import *
 import linecache
 
 #Global variables
-pc = 1		    #Program Counter
+pc = 1		    	#Program Counter
 reg = [None] * 32	#Registers
-P = []	    #Pipeline stages
-I = []		    #Instructions
-Mem = {}
+P = []	    		#Pipeline stages
+I = []				#Instructions
+Mem = {}			#List of Memory altered
 i_index = 0
-dest_reg = [None] * 32 #Store the destination registers to fix RAW hazard
-halt = 0
-cycles = 0
-branch_stall = 0
-dest = [] #Store the destination registers to fix RAW hazard
+dest_reg = [None] * 32 #Store the destination registers values to fix RAW hazard
+halt = 0 			#halt flag
+cycles = 0 			#cycle count
+branch_stall = 0 	#Branch penalty flag
+dest = [] 			#Store the destination registers to fix RAW hazard
 
 #Instruction count
-I_count = 0
-A_count = 0
-L_count = 0
-M_count = 0
-C_count = 0
-S_count = 0  #Stall count
-BP_count = 0 #Branch penalty count
+I_count = 0			#Instructions
+A_count = 0			#Arithmetic Instructions
+L_count = 0			#Logical Instructions
+M_count = 0			#Memory access Instructions
+C_count = 0			#Control Instructions 
+S_count = 0  		#Stall
+BP_count = 0 		#Branch penalty count
 
 input_trace = 'final_proj_trace.txt'
 #Class to store decoded instruction attributes
@@ -46,11 +46,14 @@ class Instruction:
 	    self.imm = 0
 	    self.Address = 0
 
+#Fetch stage. Read instruciton from the memory corresponding to the PC and store in pipeline array
 def fetch():
 	global i_index, p_index, pc
-	# Read input file
+	# Read input trace
 	I.insert(i_index,Instruction(bin(int(linecache.getline(input_trace, pc).strip(), 16))[2:].zfill(32)))
 	pc = pc + 1
+
+	#Insert into pipeline array
 	del P[0]
 	P.insert(0,I[i_index])
 	i_index = i_index + 1
@@ -59,14 +62,15 @@ def fetch():
 	if i_index == 5:
 		i_index = 0
 
+#Decode stage. Decode the Opcode and read source operand values. This stage also checks for any RAW hazard and stalls
+#If required.
 def decode():
 	global C_count,S_count,halt
-	#decode the opcode and parse operands
-	#If HALT command is found, print result and exit
+	#If HALT command is found, do nothing
 	if ISA[P[1].opcode]["Name"] == "HALT":
 		halt = 1
 		return
-		
+	#Parse operands
 	P[1].rs = int(P[1].operands[:5],2)
 	P[1].rt = int(P[1].operands[5:10],2)
 	if ISA[P[1].opcode]["Format"] == "R":
@@ -81,50 +85,41 @@ def decode():
 	#forward logic
 	if fwd_flag and P[1].rs in dest and dest_reg[P[1].rs] != None:
 		P[1].rs_value = dest_reg[P[1].rs]
-		#print dest, dest_reg
 		dest.remove(P[1].rs)
 		dest_reg[P[1].rs] = None
-		print('forwarding')
 	else:
 		P[1].rs_value = reg[P[1].rs]
 
 	if fwd_flag and dest_reg[P[1].rt] != None and ((P[1].rt in dest) and ((ISA[P[1].opcode]["Format"] == "R") or (ISA[P[1].opcode]["Name"] == "BEQ"))):
 		P[1].rt_value = dest_reg[P[1].rt]
-		#print dest
 		dest.remove(P[1].rt)
 		dest_reg[P[1].rt] = None
-		print('forwarding')
 	else:
 		#Read source register values	
 		P[1].rt_value = reg[P[1].rt]
-	print P[1].rs,P[1].rt,dest
+
 	#If RAW HAZARD, return from decode
 	if ((ISA[P[1].opcode]["Format"] == "R") and ((P[1].rs in dest) or (P[1].rt in dest))) \
 	or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest)) \
 	or ((ISA[P[1].opcode]["Name"] == "BEQ") and (P[1].rt in dest)):
-		print ('Hazard***')
 		S_count = S_count + 1
-		print dest,stall
+		print ('Hazard $$$$$$')
 		return 1;
 
 	if ISA[P[1].opcode]["Name"] != "STW" and  ISA[P[1].opcode]["Type"] != "CONTROL" :
-		#Store destination registers
-		#print ("adding " + str(destination))
 		dest.append(destination)
 
 
 	return 0;
 
-
+#Execute stage. Perform ALU operation on the operand.
 def execute():
-	#Perform ALU operation
 	global pc,BP_count,branch_stall,dest_reg
+	#If HALT command is found, do nothing
 	if ISA[P[2].opcode]["Name"] == "HALT":
 		return
 
 	if ISA[P[2].opcode]["Format"] == "R":
-		print ('Error: ' + ISA[P[2].opcode]["Name"] + " R" + str(P[2].rd) + ", R" +  str(P[2].rs) + ", R" +  str(P[2].rt))
-	
 		result = eval("P[2].rs_value"+ISA[P[2].opcode]["func"]+"P[2].rt_value")
 		P[2].rd_value = result
 		destination = P[2].rd
@@ -132,7 +127,6 @@ def execute():
 	else:
 		if ISA[P[2].opcode]["Name"] == "BEQ" and P[2].rs_value == P[2].rt_value:
 			pc = pc + P[2].imm -2
-			print pc
 			P[1] = None
 			BP_count = BP_count + 2
 			branch_stall = 2
@@ -142,47 +136,42 @@ def execute():
 			BP_count = BP_count + 2
 			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "JR":
-			print ('Jump Register is ' + str(P[2].rs_value))
 			pc = P[2].rs_value//4 + 1
-			print pc
 			P[1] = None
 			BP_count = BP_count + 2
 			branch_stall = 2
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
 			P[2].Address = P[2].rs_value + P[2].imm 
 		else:
-			print ("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			result = eval("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			P[2].rt_value = result
 			destination = P[2].rt
 			dest_reg[P[2].rt] = P[2].rt_value
-	print reg
 			
-	
+#Memory stage. Load/Store data from/to Memory
 def memory():
 	global Mem
+	#If HALT command is found, do nothing
 	if ISA[P[3].opcode]["Name"] == "HALT":
 		return
 	#Memory access for load/store instructions
-	print (linecache.getline(input_trace, P[3].Address))
 	if ISA[P[3].opcode]["Name"] == "LDW":
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]	
 		else:
 			P[3].rt_value = twos_complement(int(linecache.getline(input_trace, P[3].Address//4 +1).strip(), 16),32)
-		print reg
 		#Forwarding Mem -> Ex
 		if fwd_flag:
 			dest_reg[P[3].rt] = P[3].rt_value
 
 	if ISA[P[3].opcode]["Name"] == "STW":
-		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
-	
+
+#Write back stage. Store the ALU result in the destination register.	
 def writeback():
 	global A_count,L_count,M_count,C_count,I_count
+	#If HALT command is found, print report and exit
 	if ISA[P[4].opcode]["Name"] == "HALT":
-		print ('Halting')
 		C_count = C_count + 1
 		I_count = I_count + 1
 		printReport()
@@ -192,13 +181,11 @@ def writeback():
 		if ISA[P[4].opcode]["Format"] == "R":
 			reg[P[4].rd] = P[4].rd_value
 			#Remove destination register from list
-			#dest_reg.remove(P[4].rd)
 			if (P[4].rd in dest):
 				dest.remove(P[4].rd)
 		else:
 			reg[P[4].rt] = P[4].rt_value
 			#Remove destination register from list
-			#dest_reg.remove(P[4].rt)
 			if (P[4].rt in dest):
 				dest.remove(P[4].rt)
 
@@ -212,19 +199,18 @@ def writeback():
 		C_count = C_count + 1
 	I_count = I_count + 1
 	
-
-	#print(reg)
+#Print report
 def printReport():
-	print ('Total number of instructions:', I_count)
-	print ('Arithmetic instructions:', A_count)
-	print ('Logical instructions:', L_count)
-	print ('Memory access instructions:', M_count)
-	print ('Control transfer instructions:', C_count)
+	print ('Total number of instructions:' + str(I_count))
+	print ('Arithmetic instructions:'+ str(A_count))
+	print ('Logical instructions:'+ str(L_count))
+	print ('Memory access instructions:'+ str( M_count))
+	print ('Control transfer instructions:'+ str(C_count))
   
 	print ('\nFinal Register state:')
-	print ('Program Counter :' , (pc-1)*4)
+	print ('Program Counter :' + str( (pc-1)*4))
 	for i in range(len(reg)):
-		if reg[i] != None:
+		if reg[i] != None and i !=0:
 			print 'R',i,':',reg[i]
 	print '\nFinal Memory state:'
 	for key in sorted(Mem):
@@ -239,13 +225,14 @@ def printReport():
 	print('Pipeline fill and drain delay: '+str(4))
 	print('\n')
 
-#Convert 16 bit decimal to signed integer
+#Convert decimal to signed integer using 2's compliment
 def twos_complement(value,bits):
 	if value & (1 << (bits-1)):
 		value -= 1 << bits
 
 	return value
 
+#Retrieve the forward flag from user input
 fwd_flag = int(sys.argv[1])
 
 reg[0] = 0
@@ -256,40 +243,16 @@ P.insert(2,None)
 P.insert(3,None)
 P.insert(4,None)
 
+#Start pipelining
 while 1 : 
-	'''	fetch()
-	del P[1]
-	P.insert(1,P[0])
-	P[0] = None
-
-	decode()
-	del P[2]
-	P.insert(2,P[1])
-	P[1]=None
-
-	execute()
-	del P[3]
-	P.insert(3,P[2])
-	P[2]=None
-
-	memory()
-	del P[4]
-	P.insert(4,P[3])
-	P[3]=None
-
-	writeback()
-	P[4]=None
-	'''
 	cycles = cycles + 1
 	if P[4] != None:
 		#WB stage
-		print ("wb")
 		writeback()
 		P[4]=None
 
 	if P[3] != None:
 		#MEM stage
-		print("mem")
 		memory()
 		del P[4]
 		P.insert(4,P[3])
@@ -298,10 +261,7 @@ while 1 :
 
 	if P[2] != None:		
 		#EX stage
-		print("execute")
 		execute()
-		#if stall:
-			#continue
 		del P[3]
 		P.insert(3,P[2])
 		P[2]=None
@@ -310,7 +270,6 @@ while 1 :
 		branch_stall=branch_stall-1
 
 	if P[1] != None and branch_stall == 0:
-		print("decode")
 		stall = decode()
 		#ID stage
 		if stall:
