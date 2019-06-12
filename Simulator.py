@@ -41,7 +41,7 @@ class Instruction:
 def fetch():
 	global i_index, p_index, pc, I_count
 	# Read input file
-	I.insert(i_index,Instruction(bin(int(linecache.getline('proj_trace_1.txt', pc).strip(), 16))[2:].zfill(32)))
+	I.insert(i_index,Instruction(bin(int(linecache.getline('final_proj_trace.txt', pc).strip(), 16))[2:].zfill(32)))
 	pc = pc + 1
 	del P[0]
 	P.insert(0,I[i_index])
@@ -56,7 +56,6 @@ def decode():
 	#decode the opcode and parse operands
 	#If HALT command is found, print result and exit
 	if ISA[P[1].opcode]["Name"] == "HALT":
-		print ('Halting')
 		C_count = C_count + 1
 		printReport()
 		inFile.close()
@@ -66,10 +65,10 @@ def decode():
 	P[1].rt = int(P[1].operands[5:10],2)
 	if ISA[P[1].opcode]["Format"] == "R":
 		P[1].rd = int(P[1].operands[10:15],2)
-		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
+		#print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
 	else:
-		P[1].imm = int(P[1].operands[10:],2)
-		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
+		P[1].imm = twos_complement(int(P[1].operands[10:],2),16)
+		#print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
 
 	#Read source register values
 	P[1].rs_value = reg[P[1].rs]
@@ -88,7 +87,6 @@ def decode():
 def execute():
 	#Perform ALU operation
 	global pc
-	print ('execute stage')
 	if ISA[P[2].opcode]["Format"] == "R":
 		result = eval("P[2].rs_value"+ISA[P[2].opcode]["func"]+"P[2].rt_value")
 		P[2].rd_value = result
@@ -98,12 +96,10 @@ def execute():
 		if ISA[P[2].opcode]["Name"] == "BZ" and P[2].rs_value == 0:
 			pc = pc + P[2].imm-1 
 		if ISA[P[2].opcode]["Name"] == "JR":
-			print ('Jump Register is ' + str(P[2].rs_value))
 			pc = P[2].rs_value//4 + 1
 		if ISA[P[2].opcode]["Name"] == "LDW" or ISA[P[2].opcode]["Name"] == "STW":
 			P[2].Address = P[2].rs_value + P[2].imm 
 		else:
-			print ("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			result = eval("P[2].rs_value "+ISA[P[2].opcode]["func"]+" P[2].imm")
 			P[2].rt_value = result
 			
@@ -111,14 +107,12 @@ def execute():
 def memory():
 	global Mem
 	#Memory access for load/store instructions
-	print (linecache.getline('proj_trace.txt', P[3].Address))
 	if ISA[P[3].opcode]["Name"] == "LDW":
 		if str(P[3].Address) in list(Mem.keys()):
 			P[3].rt_value = Mem[str(P[3].Address)]
 		else:
-			P[3].rt_value = int(linecache.getline('proj_trace_1.txt', P[3].Address//4 +1).strip(), 16)
+			P[3].rt_value = twos_complement(int(linecache.getline('final_proj_trace.txt', P[3].Address//4 +1).strip(), 16),32)
 	if ISA[P[3].opcode]["Name"] == "STW":
-		print (P[3].Address)
 		Mem[str(P[3].Address)] = reg[P[3].rt]
 	
 def writeback():
@@ -129,30 +123,29 @@ def writeback():
 		else:
 			reg[P[4].rt] = P[4].rt_value
 
-	#print(reg)
 def printReport():
-	print ('Total number of instructions:', I_count)
-	print ('Arithmetic instructions:', A_count)
-	print ('Logical instructions:', L_count)
-	print ('Memory access instructions:', M_count)
-	print ('Control transfer instructions:', C_count)
+	print ('Total number of instructions:' + str(I_count))
+	print ('Arithmetic instructions:' +str(A_count))
+	print ('Logical instructions:'+str( L_count))
+	print ('Memory access instructions:'+str(M_count))
+	print ('Control transfer instructions:'+str(C_count))
   
 	print ('\nFinal Register state:')
-	print ('Program Counter :' , (pc-1)*4)
+	print ('Program Counter :' +str((pc-1)*4))
 	for i in range(len(reg)):
-		if reg[i] != None:
+		if reg[i] != None  and i !=0:
 			print 'R',i,':',reg[i]
 	print '\nFinal Memory state:'
-	for key in Mem:
+	for key in sorted(Mem):
 		print 'Address:',key,', Contents:',Mem[key]
 
 #Convert 16 bit decimal to signed integer
-def twos_complement(value):
-	if value & (1 << (16-1)):
-		value -= 1 << 16
+def twos_complement(value,bits):
+	if value & (1 << (bits-1)):
+		value -= 1 << bits
 	return value
 
-inFile = open("proj_trace_1.txt","r")
+inFile = open("final_proj_trace.txt","r")
 
 reg[0] = 0
 
@@ -163,33 +156,6 @@ P.insert(3,None)
 P.insert(4,None)
 
 while 1 : 
-	
-	if P[4] != None:
-		#WB stage
-		writeback()
-		P[4]=None
-
-	if P[3] != None:
-		#MEM stage
-		memory()
-		del P[4]
-		P.insert(4,P[3])
-		P[3]=None
-	
-
-	if P[2] != None:		
-		#EX stage
-		execute()
-		del P[3]
-		P.insert(3,P[2])
-		P[2]=None
-
-	if P[1] != None:
-		#ID stage
-		decode()
-		del P[2]
-		P.insert(2,P[1])
-		P[1]=None
 
 	if P[0] == None:
 		#IF stage
@@ -198,9 +164,31 @@ while 1 :
 		P.insert(1,P[0])
 		P[0] = None
 
+	if P[1] != None:
+		#ID stage
+		decode()
+		del P[2]
+		P.insert(2,P[1])
+		P[1]=None
 
-	
+	if P[2] != None:		
+		#EX stage
+		execute()
+		del P[3]
+		P.insert(3,P[2])
+		P[2]=None
 
+	if P[3] != None:
+		#MEM stage
+		memory()
+		del P[4]
+		P.insert(4,P[3])
+		P[3]=None
+
+	if P[4] != None:
+		#WB stage
+		writeback()
+		P[4]=None
 	
 
 	

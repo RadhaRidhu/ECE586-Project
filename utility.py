@@ -26,6 +26,18 @@ ISA = {
         "Type"  : "ARITHMETIC",
         "func" : "-"
     },
+    "000100" : {
+        "Name" : "MUL",
+        "Format" : "R",
+        "Type"  : "ARITHMETIC",
+        "func" : "*"
+    },
+    "000101" : {
+        "Name" : "MULI",
+        "Format" : "I",
+        "Type"  : "ARITHMETIC",
+        "func" : "*"
+    },
      "000110" : {
 
         "Name" : "OR",
