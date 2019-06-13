@@ -18,6 +18,7 @@ Mem = {}			#List of Memory altered
 i_index = 0
 dest_reg = [None] * 32 #Store the destination registers values to fix RAW hazard
 halt = 0 			#halt flag
+hazard = 0			#hazard flag
 cycles = 0 			#cycle count
 branch_stall = 0 	#Branch penalty flag
 dest = [] 			#Store the destination registers to fix RAW hazard
@@ -30,6 +31,7 @@ M_count = 0			#Memory access Instructions
 C_count = 0			#Control Instructions 
 S_count = 0  		#Stall
 BP_count = 0 		#Branch penalty count
+H_count = 0			#Hazard count
 
 input_trace = 'final_proj_trace.txt'
 #Class to store decoded instruction attributes
@@ -65,7 +67,7 @@ def fetch():
 #Decode stage. Decode the Opcode and read source operand values. This stage also checks for any RAW hazard and stalls
 #If required.
 def decode():
-	global C_count,S_count,halt
+	global C_count,S_count,halt,hazard,H_count
 	#If HALT command is found, do nothing
 	if ISA[P[1].opcode]["Name"] == "HALT":
 		halt = 1
@@ -103,6 +105,9 @@ def decode():
 	or ((ISA[P[1].opcode]["Format"] == "I") and (P[1].rs in dest)) \
 	or ((ISA[P[1].opcode]["Name"] == "BEQ") and (P[1].rt in dest)):
 		S_count = S_count + 1
+		if (hazard == 0):
+			H_count = H_count + 1
+			hazard = 1
 		print ('Hazard $$$$$$')
 		return 1;
 
@@ -223,6 +228,8 @@ def printReport():
 	print('Total stalls for data hazard: ' + str(S_count))
 	print('Branch Penalty: '+str(BP_count))
 	print('Pipeline fill and drain delay: '+str(4))
+	print('Total data hazard: '+str(H_count))
+	print('Average stalls penalty per hazard: '+str(float(S_count)/H_count))
 	print('\n')
 
 #Convert decimal to signed integer using 2's compliment
@@ -280,6 +287,7 @@ while 1 :
 
 	if P[0] == None and not halt and branch_stall == 0:
 		#IF stage
+		hazard = 0
 		fetch()
 		del P[1]
 		P.insert(1,P[0])
