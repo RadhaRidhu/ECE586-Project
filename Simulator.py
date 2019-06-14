@@ -78,11 +78,11 @@ def decode():
 	if ISA[P[1].opcode]["Format"] == "R":
 		P[1].rd = int(P[1].operands[10:15],2)
 		destination = P[1].rd
-		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
+		#print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rd) + ", R" +  str(P[1].rs) + ", R" +  str(P[1].rt))
 	else:
 		P[1].imm = twos_complement(int(P[1].operands[10:],2),16)
 		destination = P[1].rt
-		print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
+		#print (ISA[P[1].opcode]["Name"] + " R" + str(P[1].rt) + ", R" +  str(P[1].rs) + ","+  str(P[1].imm))
 
 	#forward logic
 	if fwd_flag and P[1].rs in dest and dest_reg[P[1].rs] != None:
@@ -108,7 +108,6 @@ def decode():
 		if (hazard == 0):
 			H_count = H_count + 1
 			hazard = 1
-		print ('Hazard $$$$$$')
 		return 1;
 
 	if ISA[P[1].opcode]["Name"] != "STW" and  ISA[P[1].opcode]["Type"] != "CONTROL" :
@@ -216,10 +215,10 @@ def printReport():
 	print ('Program Counter :' + str( (pc-1)*4))
 	for i in range(len(reg)):
 		if reg[i] != None and i !=0:
-			print 'R',i,':',reg[i]
-	print '\nFinal Memory state:'
+			print ('R'+str(i)+':'+str(reg[i]))
+	print ('\nFinal Memory state:')
 	for key in sorted(Mem):
-		print 'Address:',key,', Contents:',Mem[key]
+		print ('Address:'+str(key)+', Contents:'+str(Mem[key]))
 	if fwd_flag:
 		print('\nTiming Simulator with forwarding:')
 	else:
